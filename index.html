@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>popIn — 流量預估平台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0d0f14;--surface:#151820;--surface2:#1c2030;--surface3:#232840;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--accent:#4f8ef7;--accent2:#38d9a9;--warn:#f5a623;--danger:#e05a5a;--text:#e8eaf0;--text2:#8b90a8;--text3:#555c78;--mono:'DM Mono',monospace;--sans:'Noto Sans TC',sans-serif;--radius:10px;--radius-sm:6px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+.app{display:flex;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0}
+.logo{padding:22px 18px 18px;border-bottom:1px solid var(--border)}
+.logo-mark{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--accent);letter-spacing:-0.5px}
+.logo-sub{font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:0.07em;text-transform:uppercase}
+.nav{padding:14px 10px;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:13px;margin-bottom:2px;transition:background .15s,color .15s;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(79,142,247,0.12);color:var(--accent)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.data-badge{font-size:11px;padding:5px 10px;border-radius:var(--radius-sm);margin:0 10px 12px;text-align:center}
+.ds-ok{background:rgba(56,217,169,.1);color:var(--accent2);border:1px solid rgba(56,217,169,.2)}
+.ds-demo{background:rgba(245,166,35,.1);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
+.sidebar-footer{padding:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.7}
+
+/* MAIN */
+.main{margin-left:200px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);gap:12px}
+.topbar-left{display:flex;flex-direction:column}
+.page-title{font-size:15px;font-weight:500;color:var(--text)}
+.page-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.content{padding:24px 28px}
+.view{display:none}
+.view.active{display:block}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:14px}
+.card-title{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:11px;color:var(--text2)}
+.form-control{height:36px;padding:0 11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--sans);outline:none;transition:border-color .15s}
+.form-control:focus{border-color:var(--accent)}
+.form-control option{background:var(--surface2)}
+
+/* BUTTONS */
+.btn-primary{height:38px;padding:0 20px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#fff;font-size:13px;font-weight:500;font-family:var(--sans);cursor:pointer;transition:opacity .15s,transform .1s;display:inline-flex;align-items:center;gap:7px;margin-top:16px}
+.btn-primary:hover{opacity:.88}
+.btn-primary:active{transform:scale(.98)}
+.btn-ghost{height:34px;padding:0 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-size:12px;font-family:var(--sans);cursor:pointer;transition:background .15s,color .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-ghost:hover{background:var(--surface3);color:var(--text)}
+.btn-icon{height:34px;width:34px;padding:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-size:15px;font-family:var(--sans);cursor:pointer;transition:background .15s,color .15s;display:inline-flex;align-items:center;justify-content:center}
+.btn-icon:hover{background:var(--surface3);color:var(--text)}
+.btn-warn{height:34px;padding:0 14px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.2);border-radius:var(--radius-sm);color:var(--warn);font-size:12px;font-family:var(--sans);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn-warn:hover{background:rgba(245,166,35,.18)}
+
+/* METRICS */
+.metrics-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.metric{background:var(--surface2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)}
+.metric-label{font-size:11px;color:var(--text3);margin-bottom:6px}
+.metric-value{font-family:var(--mono);font-size:20px;font-weight:500;color:var(--text)}
+.metric-value.danger{color:var(--danger)}
+.metric-value.accent{color:var(--accent2)}
+.metric-sub{font-size:10px;color:var(--text3);margin-top:3px}
+
+/* ALERT */
+.alert{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:500}
+.alert-ok{background:rgba(56,217,169,.08);border:1px solid rgba(56,217,169,.2);color:#38d9a9}
+.alert-warn{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);color:#f5a623}
+.alert-fail{background:rgba(224,90,90,.08);border:1px solid rgba(224,90,90,.2);color:var(--danger)}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{text-align:left;font-size:11px;font-weight:500;color:var(--text3);padding:7px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody td{padding:10px 11px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+.td-name{color:var(--text);font-weight:500;font-size:12px}
+.td-mono{font-family:var(--mono);font-size:12px;color:var(--text)}
+.td-danger{font-family:var(--mono);color:var(--danger)}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-ok{background:rgba(56,217,169,.1);color:#38d9a9;border:1px solid rgba(56,217,169,.2)}
+.badge-warn{background:rgba(245,166,35,.1);color:#f5a623;border:1px solid rgba(245,166,35,.2)}
+.badge-fail{background:rgba(224,90,90,.1);color:var(--danger);border:1px solid rgba(224,90,90,.2)}
+
+/* STACK BAR */
+.stkbar{height:7px;border-radius:4px;overflow:hidden;display:flex;background:var(--surface3);min-width:80px}
+.stkbar-booked{background:var(--danger);height:100%;opacity:.7}
+.stkbar-avail{background:var(--accent2);height:100%;opacity:.8}
+
+/* ORDER EXPAND */
+.orders-toggle{font-size:10px;color:var(--accent);cursor:pointer;margin-top:3px;display:inline-block;text-decoration:underline}
+.orders-detail{margin-top:5px;background:var(--surface3);border-radius:var(--radius-sm);padding:5px 8px;display:none}
+.orders-detail.show{display:block}
+.order-row{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);padding:2px 0;border-bottom:1px solid var(--border)}
+.order-row:last-child{border-bottom:none}
+.booked-pill{font-size:10px;padding:1px 6px;background:rgba(224,90,90,.12);border:1px solid rgba(224,90,90,.2);color:var(--danger);border-radius:20px;margin-left:6px}
+
+/* MEDIA LIST */
+.media-grid{display:flex;flex-direction:column;gap:8px}
+.media-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:flex-start;gap:14px;transition:border-color .15s}
+.media-card:hover{border-color:var(--border2)}
+.media-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.media-body{flex:1;min-width:0}
+.media-name{font-size:13px;font-weight:500;color:var(--text)}
+.media-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.media-orders{margin-top:8px}
+.media-stats{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.media-imps{font-family:var(--mono);font-size:14px;color:var(--accent2)}
+.media-imps-sub{font-size:10px;color:var(--text3)}
+
+/* SETTINGS MODAL */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);width:520px;max-width:92vw;padding:24px;position:relative}
+.modal-title{font-size:15px;font-weight:500;color:var(--text);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-row{margin-bottom:14px}
+.modal-label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block}
+.modal-hint{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5}
+.conn-status{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:var(--radius-sm);font-size:12px;margin-top:8px}
+.conn-ok{background:rgba(56,217,169,.08);border:1px solid rgba(56,217,169,.2);color:var(--accent2)}
+.conn-err{background:rgba(224,90,90,.08);border:1px solid rgba(224,90,90,.2);color:var(--danger)}
+.conn-idle{background:var(--surface2);border:1px solid var(--border);color:var(--text3)}
+.modal-divider{height:1px;background:var(--border);margin:16px 0}
+.step-list{display:flex;flex-direction:column;gap:8px}
+.step-item{display:flex;gap:10px;align-items:flex-start}
+.step-num{width:20px;height:20px;border-radius:50%;background:rgba(79,142,247,.15);border:1px solid rgba(79,142,247,.3);color:var(--accent);font-size:10px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.step-text{font-size:12px;color:var(--text2);line-height:1.6}
+.step-text code{font-family:var(--mono);font-size:10px;background:var(--surface3);padding:1px 5px;border-radius:3px;color:var(--accent)}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:rgba(13,15,20,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:14px}
+.loading-spinner{width:32px;height:32px;border:3px solid var(--surface3);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:12px;color:var(--text2)}
+
+/* MISC */
+.flex{display:flex}
+.gap8{gap:8px}
+.text2{color:var(--text2)}
+.text3{color:var(--text3)}
+.mono{font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">popIn</div>
+    <div class="logo-sub">流量預估平台</div>
+  </div>
+  <nav class="nav">
+    <button class="nav-item active" onclick="gotoView('estimate',this)">
+      <span class="nav-icon">⚡</span> 流量預估
+    </button>
+    <button class="nav-item" onclick="gotoView('media',this)">
+      <span class="nav-icon">📡</span> 媒體管理
+    </button>
+  </nav>
+  <div id="data-badge" class="data-badge ds-demo">📊 示範資料模式</div>
+  <div class="sidebar-footer">
+    媒體數：<span id="sf-media">10</span> 家<br/>
+    在途訂單：<span id="sf-orders">12</span> 筆
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="page-title" id="page-title">流量預估</div>
+      <div class="page-sub" id="page-sub">輸入提案條件，比對各媒體可用淨量</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-warn" id="btn-refresh" onclick="refreshSheets()" style="display:none">↻ 同步最新資料</button>
+      <button class="btn-ghost" onclick="resetForm()">↺ 重設</button>
+      <button class="btn-icon" onclick="openSettings()" title="Google Sheets 設定">⚙️</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── 流量預估 ── -->
+    <div class="view active" id="view-estimate">
+      <div class="card">
+        <div class="card-title">提案條件設定</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">總預算（NT$）</label>
+            <input class="form-control" type="number" id="budget" value="500000" step="10000" min="0"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">CPM 售價（NT$）</label>
+            <input class="form-control" type="number" id="cpm" value="250" min="1"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">走期天數</label>
+            <input class="form-control" type="number" id="days" value="30" min="1" max="365"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">走期開始日</label>
+            <input class="form-control" type="date" id="startDate"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">版位類型</label>
+            <select class="form-control" id="adtype">
+              <option value="all">不限</option>
+              <option value="article">文章頁</option>
+              <option value="list">列表頁</option>
+              <option value="video">影音</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">受眾分類</label>
+            <select class="form-control" id="audience">
+              <option value="all">不限</option>
+              <option value="finance">財經</option>
+              <option value="news">新聞</option>
+              <option value="lifestyle">生活</option>
+              <option value="tech">科技</option>
+              <option value="entertainment">娛樂</option>
+              <option value="health">健康</option>
+              <option value="parenting">親子</option>
+              <option value="auto">汽車</option>
+              <option value="travel">旅遊</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="calculate()">⚡ 計算可用流量</button>
+      </div>
+
+      <div id="est-result" style="display:none">
+        <div id="est-alert"></div>
+        <div class="metrics-row">
+          <div class="metric"><div class="metric-label">所需曝光量</div><div class="metric-value" id="m-needed">—</div><div class="metric-sub">Impressions needed</div></div>
+          <div class="metric"><div class="metric-label">庫存總量</div><div class="metric-value" id="m-gross">—</div><div class="metric-sub">走期內庫存總量</div></div>
+          <div class="metric"><div class="metric-label">已售扣除</div><div class="metric-value danger" id="m-booked">—</div><div class="metric-sub">Booked impressions</div></div>
+          <div class="metric"><div class="metric-label">可用淨量</div><div class="metric-value accent" id="m-avail">—</div><div class="metric-sub">Available net imps</div></div>
+          <div class="metric"><div class="metric-label">淨覆蓋率</div><div class="metric-value" id="m-coverage">—</div><div class="metric-sub">淨量 ÷ 需求量</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:10px">媒體庫存明細（已售扣除）</div>
+          <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;color:var(--text3)">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:5px;border-radius:2px;background:var(--danger);display:inline-block;opacity:.7"></span>已售庫存</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:5px;border-radius:2px;background:var(--accent2);display:inline-block;opacity:.8"></span>可用淨量</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:140px">媒體名稱</th>
+                  <th>版位</th>
+                  <th>走期庫存</th>
+                  <th>已售 Imps</th>
+                  <th>可用淨量</th>
+                  <th>佔用率</th>
+                  <th style="width:100px">庫存分佈</th>
+                  <th>匹配狀態</th>
+                </tr>
+              </thead>
+              <tbody id="est-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 媒體管理 ── -->
+    <div class="view" id="view-media">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:13px;color:var(--text2)">
+          共 <span id="media-count-lbl" style="color:var(--text);font-weight:500">—</span> 家合作媒體，
+          <span id="orders-count-lbl" style="color:var(--danger)">—</span> 筆在途訂單
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select class="form-control" id="media-filter-type" style="height:32px;font-size:12px;width:100px" onchange="renderMedia()">
+            <option value="all">全部版位</option>
+            <option value="article">文章頁</option>
+            <option value="list">列表頁</option>
+            <option value="video" selected>影音</option>
+          </select>
+          <select class="form-control" id="media-filter-aud" style="height:32px;font-size:12px;width:90px" onchange="renderMedia()">
+            <option value="all">全部受眾</option>
+            <option value="finance">財經</option>
+            <option value="news">新聞</option>
+            <option value="lifestyle">生活</option>
+            <option value="tech">科技</option>
+            <option value="entertainment">娛樂</option>
+            <option value="health">健康</option>
+            <option value="parenting">親子</option>
+            <option value="auto">汽車</option>
+            <option value="travel">旅遊</option>
+          </select>
+        </div>
+      </div>
+      <div class="media-grid" id="media-list"></div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-backdrop" id="settings-modal" style="display:none" onclick="closeSettingsOutside(event)">
+  <div class="modal">
+    <div class="modal-title">⚙️ Google Sheets 設定</div>
+    <button class="modal-close" onclick="closeSettings()">✕</button>
+
+    <div class="modal-row">
+      <label class="modal-label">試算表 ID</label>
+      <input class="form-control" type="text" id="sheets-id" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="font-family:var(--mono);font-size:12px"/>
+      <div class="modal-hint">Google Sheets 網址中 <code style="font-family:var(--mono);font-size:10px;background:var(--surface3);padding:1px 4px;border-radius:3px">/d/</code> 後面那串字元</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="modal-row" style="margin:0">
+        <label class="modal-label">媒體庫存工作表名稱</label>
+        <input class="form-control" type="text" id="sheet-media-name" value="媒體庫存" style="font-size:12px"/>
+      </div>
+      <div class="modal-row" style="margin:0">
+        <label class="modal-label">在途訂單工作表名稱</label>
+        <input class="form-control" type="text" id="sheet-orders-name" value="在途訂單" style="font-size:12px"/>
+      </div>
+    </div>
+
+    <div id="conn-status" class="conn-status conn-idle">尚未連接</div>
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn-primary" style="margin-top:0;height:36px;font-size:12px" onclick="connectSheets()">🔗 連接並載入資料</button>
+      <button class="btn-ghost" onclick="useDemoData()">📊 切回示範資料</button>
+    </div>
+
+    <div class="modal-divider"></div>
+
+    <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:10px">設定步驟</div>
+    <div class="step-list">
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <div class="step-text">下載範本 → 上傳至 Google 雲端 → 用 Google Sheets 開啟，填入媒體與訂單資料</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <div class="step-text">點右上角「共用」→「取得連結」→ 設為 <code>知道連結的人 → 檢視者</code></div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <div class="step-text">從連結中複製 ID（<code>/d/【這串】/edit</code>）→ 貼上方欄位 → 點「連接」</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">4</div>
+        <div class="step-text">日後在 Sheets 更新數字後，點 topbar 的「↻ 同步最新資料」即可</div>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <a href="FlowMatch_媒體庫存範本.xlsx" download style="text-decoration:none">
+        <button class="btn-ghost" style="font-size:12px">📥 下載試算表範本</button>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading-overlay" style="display:none">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loading-text">正在從 Google Sheets 讀取資料...</div>
+</div>
+
+<script>
+// ── DEMO DATA ──
+const DEMO_MEDIA = [
+  // ── 影音 video (m1–m26) ──
+  {id:'m1', name:'自由財經',          type:'video',audience:['finance','news'],          dailyImps:37232,  quality:90,color:'#4f8ef7',note:'財經新聞，桌機流量為主',orders:[]},
+  {id:'m2', name:'東森新聞',          type:'video',audience:['news','lifestyle'],        dailyImps:78234,  quality:90,color:'#38d9a9',note:'綜合新聞，流量穩定',orders:[]},
+  {id:'m3', name:'東森娛樂',          type:'video',audience:['entertainment','lifestyle'],dailyImps:43408,  quality:90,color:'#f5a623',note:'娛樂內容為主',orders:[]},
+  {id:'m4', name:'udn部落格',         type:'video',audience:['lifestyle','finance'],     dailyImps:6398,   quality:90,color:'#a78bfa',note:'聯合報系部落格社群',orders:[]},
+  {id:'m5', name:'商周財富網',        type:'video',audience:['finance'],                dailyImps:2554,   quality:90,color:'#fb7185',note:'商業周刊旗下財經頻道',orders:[]},
+  {id:'m6', name:'MoneyDJ',          type:'video',audience:['finance'],                dailyImps:22041,  quality:90,color:'#e879f9',note:'財經投資人族群，精準',orders:[]},
+  {id:'m7', name:'新頭殼',            type:'video',audience:['news'],                   dailyImps:34517,  quality:90,color:'#34d399',note:'政治社會新聞讀者',orders:[]},
+  {id:'m8', name:'科技新報',          type:'video',audience:['tech'],                   dailyImps:14660,  quality:90,color:'#60a5fa',note:'科技產業深度讀者',orders:[]},
+  {id:'m9', name:'3C新報',            type:'video',audience:['tech'],                   dailyImps:438,    quality:90,color:'#fbbf24',note:'3C開箱評測內容',orders:[]},
+  {id:'m10',name:'財經新報',          type:'video',audience:['finance','news'],          dailyImps:16299,  quality:90,color:'#6ee7b7',note:'財經時事報導',orders:[]},
+  {id:'m11',name:'鉅亨網',            type:'video',audience:['finance'],                dailyImps:45577,  quality:90,color:'#f87171',note:'股票投資族群，財經精準',orders:[]},
+  {id:'m12',name:'科技報橘',          type:'video',audience:['tech'],                   dailyImps:43,     quality:90,color:'#818cf8',note:'科技趨勢評論',orders:[]},
+  {id:'m13',name:'icook愛料理',       type:'video',audience:['lifestyle'],              dailyImps:312,    quality:90,color:'#fb923c',note:'料理美食生活受眾',orders:[]},
+  {id:'m14',name:'娛樂重擊',          type:'video',audience:['entertainment'],          dailyImps:6,      quality:90,color:'#e879f9',note:'影視娛樂評論讀者',orders:[]},
+  {id:'m15',name:'U-CAR新聞',         type:'video',audience:['auto'],                   dailyImps:800,    quality:90,color:'#2dd4bf',note:'汽車購車族群',orders:[]},
+  {id:'m16',name:'Mobile01',         type:'video',audience:['tech','lifestyle'],        dailyImps:23791,  quality:90,color:'#60a5fa',note:'3C生活討論社群，黏著度高',orders:[]},
+  {id:'m17',name:'媽媽寶寶',          type:'video',audience:['parenting','lifestyle'],  dailyImps:1560,   quality:90,color:'#f472b6',note:'孕婦育兒族群',orders:[]},
+  {id:'m18',name:'媽咪拜',            type:'video',audience:['parenting','lifestyle'],  dailyImps:1050,   quality:90,color:'#fb7185',note:'媽媽族群，親子內容',orders:[]},
+  {id:'m19',name:'嬰兒與母親',        type:'video',audience:['parenting'],              dailyImps:458,    quality:90,color:'#e879f9',note:'嬰兒育兒精準受眾',orders:[]},
+  {id:'m20',name:'Mook景點家',        type:'video',audience:['travel','lifestyle'],     dailyImps:76,     quality:90,color:'#34d399',note:'旅遊景點內容',orders:[]},
+  {id:'m21',name:'HEHO',             type:'video',audience:['health','lifestyle'],      dailyImps:2914,   quality:90,color:'#38d9a9',note:'健康醫療科普內容',orders:[]},
+  {id:'m22',name:'今健康',            type:'video',audience:['health'],                 dailyImps:312,    quality:90,color:'#4ade80',note:'健康養生精準受眾',orders:[]},
+  {id:'m23',name:'FTNN新聞網',        type:'video',audience:['news'],                   dailyImps:195842, quality:90,color:'#4f8ef7',note:'流量最大，綜合新聞',orders:[]},
+  {id:'m24',name:'上報',              type:'video',audience:['news','finance'],          dailyImps:16653,  quality:90,color:'#a78bfa',note:'政經深度新聞讀者',orders:[]},
+  {id:'m25',name:'太報',              type:'video',audience:['news'],                   dailyImps:4153,   quality:90,color:'#f5a623',note:'政治社會新聞',orders:[]},
+  {id:'m26',name:'華視',              type:'video',audience:['news','entertainment'],   dailyImps:367,    quality:90,color:'#fb7185',note:'電視台官方媒體',orders:[]},
+  // ── 文章頁 article (m27–m84) ──
+  {id:'m27',name:'三立新聞',          type:'article',audience:['news','entertainment'], dailyImps:689569, quality:90,color:'#4f8ef7',note:'三立新聞網，娛樂新聞為主',orders:[]},
+  {id:'m28',name:'東森新聞',          type:'article',audience:['news','entertainment'], dailyImps:535209, quality:90,color:'#38d9a9',note:'東森新聞雲，綜合新聞流量大',orders:[]},
+  {id:'m29',name:'NOWnews今日新聞',   type:'article',audience:['news','lifestyle'],     dailyImps:390436, quality:90,color:'#f5a623',note:'即時新聞，廣大一般受眾',orders:[]},
+  {id:'m30',name:'ETtoday新聞雲',     type:'article',audience:['news','lifestyle'],     dailyImps:314948, quality:90,color:'#a78bfa',note:'全台最大新聞媒體之一',orders:[]},
+  {id:'m31',name:'自由時報',          type:'article',audience:['news','lifestyle'],     dailyImps:237475, quality:90,color:'#fb7185',note:'全台主要新聞媒體，流量大',orders:[]},
+  {id:'m32',name:'新頭殼',            type:'article',audience:['news'],                 dailyImps:236733, quality:90,color:'#e879f9',note:'政治社會新聞深度讀者',orders:[]},
+  {id:'m33',name:'中時新聞網',        type:'article',audience:['news','finance'],       dailyImps:233020, quality:90,color:'#34d399',note:'中時集團，財經新聞',orders:[]},
+  {id:'m34',name:'FTNN新聞網',        type:'article',audience:['news'],                 dailyImps:224290, quality:90,color:'#60a5fa',note:'綜合新聞，流量穩定',orders:[]},
+  {id:'m35',name:'online APP',       type:'article',audience:['news','lifestyle'],     dailyImps:200351, quality:90,color:'#fbbf24',note:'APP流量',orders:[]},
+  {id:'m36',name:'下班經濟學',        type:'article',audience:['finance','lifestyle'],  dailyImps:190025, quality:90,color:'#6ee7b7',note:'下班族財經生活內容',orders:[]},
+  {id:'m37',name:'Mobile01（Netdia）',type:'article',audience:['tech','lifestyle'],     dailyImps:181060, quality:90,color:'#f87171',note:'3C生活討論社群，高黏著度',orders:[]},
+  {id:'m38',name:'鏡週刊',            type:'article',audience:['news','entertainment'], dailyImps:188654, quality:90,color:'#818cf8',note:'深度報導，高質感讀者',orders:[]},
+  {id:'m39',name:'中時電子報（DFP）', type:'article',audience:['news','finance'],       dailyImps:104814, quality:90,color:'#fb923c',note:'中時桌機版流量',orders:[]},
+  {id:'m40',name:'工商時報',          type:'article',audience:['finance'],              dailyImps:170864, quality:90,color:'#2dd4bf',note:'財經商業精準受眾',orders:[]},
+  {id:'m41',name:'痞客邦 PIXNET',     type:'article',audience:['lifestyle'],            dailyImps:115655, quality:90,color:'#f472b6',note:'部落格平台，生活內容豐富',orders:[]},
+  {id:'m42',name:'常春藤健康網 EDH',  type:'article',audience:['health','lifestyle'],   dailyImps:102521, quality:90,color:'#4ade80',note:'健康養生內容',orders:[]},
+  {id:'m43',name:'Mobile01',         type:'article',audience:['tech','lifestyle'],     dailyImps:109924, quality:90,color:'#38d9a9',note:'3C評測、生活討論',orders:[]},
+  {id:'m44',name:'85novel 小說',      type:'article',audience:['entertainment'],        dailyImps:83491,  quality:90,color:'#a3e635',note:'網路小說讀者族群',orders:[]},
+  {id:'m45',name:'今周刊',            type:'article',audience:['finance'],              dailyImps:78737,  quality:90,color:'#38bdf8',note:'財經投資讀者精準',orders:[]},
+  {id:'m46',name:'18ii',             type:'article',audience:['lifestyle'],            dailyImps:78141,  quality:90,color:'#c084fc',note:'生活資訊平台',orders:[]},
+  {id:'m47',name:'鉅亨網',            type:'article',audience:['finance'],              dailyImps:64032,  quality:90,color:'#e879f9',note:'股票財經投資族群',orders:[]},
+  {id:'m48',name:'愛料理 iCook',      type:'article',audience:['lifestyle'],            dailyImps:54223,  quality:90,color:'#f43f5e',note:'料理美食生活受眾',orders:[]},
+  {id:'m49',name:'ELLE',             type:'article',audience:['lifestyle'],            dailyImps:52613,  quality:90,color:'#06b6d4',note:'時尚女性族群',orders:[]},
+  {id:'m50',name:'mnews',            type:'article',audience:['news'],                 dailyImps:48666,  quality:90,color:'#84cc16',note:'新聞聚合平台',orders:[]},
+  {id:'m51',name:'CTWANT',           type:'article',audience:['news','entertainment'], dailyImps:45299,  quality:90,color:'#f97316',note:'中時娛樂新聞',orders:[]},
+  {id:'m52',name:'風傳媒 Storm',      type:'article',audience:['news','finance'],       dailyImps:44580,  quality:90,color:'#8b5cf6',note:'政經深度新聞',orders:[]},
+  {id:'m53',name:'鏡好聽 MirrorDaily',type:'article',audience:['news','entertainment'], dailyImps:43327,  quality:90,color:'#14b8a6',note:'鏡傳媒旗下頻道',orders:[]},
+  {id:'m54',name:'科技新報',          type:'article',audience:['tech','finance'],       dailyImps:36054,  quality:90,color:'#ec4899',note:'科技財經讀者',orders:[]},
+  {id:'m55',name:'TSNA體育新聞',      type:'article',audience:['news'],                 dailyImps:28746,  quality:90,color:'#6366f1',note:'體育運動讀者',orders:[]},
+  {id:'m56',name:'上報',              type:'article',audience:['news','finance'],       dailyImps:26538,  quality:90,color:'#10b981',note:'政經深度報導',orders:[]},
+  {id:'m57',name:'MoneyDJ',          type:'article',audience:['finance'],              dailyImps:29891,  quality:90,color:'#f59e0b',note:'財經投資精準受眾',orders:[]},
+  {id:'m58',name:'中央通訊社 CNA',    type:'article',audience:['news'],                 dailyImps:25010,  quality:90,color:'#3b82f6',note:'官方新聞通訊社',orders:[]},
+  {id:'m59',name:'HEHO健康',          type:'article',audience:['health','lifestyle'],   dailyImps:19563,  quality:90,color:'#ef4444',note:'健康醫療科普內容',orders:[]},
+  {id:'m60',name:'Harper\'s Bazaar', type:'article',audience:['lifestyle'],            dailyImps:17088,  quality:90,color:'#22c55e',note:'頂級時尚女性族群',orders:[]},
+  {id:'m61',name:'T客邦',             type:'article',audience:['tech'],                 dailyImps:18319,  quality:90,color:'#eab308',note:'科技3C評測',orders:[]},
+  {id:'m62',name:'民視新聞',          type:'article',audience:['news'],                 dailyImps:15965,  quality:90,color:'#6d28d9',note:'民視電視台官方媒體',orders:[]},
+  {id:'m63',name:'PCDVD',            type:'article',audience:['tech'],                 dailyImps:18555,  quality:90,color:'#0891b2',note:'PC硬體討論社群',orders:[]},
+  {id:'m64',name:'天下雜誌',          type:'article',audience:['finance','lifestyle'],  dailyImps:10090,  quality:90,color:'#be185d',note:'質感財經生活讀者',orders:[]},
+  {id:'m65',name:'Cool-Style',       type:'article',audience:['lifestyle'],            dailyImps:10302,  quality:90,color:'#15803d',note:'生活時尚風格',orders:[]},
+  {id:'m66',name:'韓星網',            type:'article',audience:['entertainment'],        dailyImps:10654,  quality:90,color:'#b45309',note:'韓流娛樂粉絲',orders:[]},
+  {id:'m67',name:'台灣好新聞',        type:'article',audience:['news'],                 dailyImps:8925,   quality:90,color:'#1d4ed8',note:'地方新聞資訊',orders:[]},
+  {id:'m68',name:'StyleTC',          type:'article',audience:['lifestyle','entertainment'],dailyImps:8666,quality:90,color:'#dc2626',note:'時尚娛樂生活',orders:[]},
+  {id:'m69',name:'商周健康',          type:'article',audience:['health','finance'],     dailyImps:7688,   quality:90,color:'#16a34a',note:'商業周刊健康頻道',orders:[]},
+  {id:'m70',name:'UDN Stars/部落格',  type:'article',audience:['lifestyle','entertainment'],dailyImps:13697,quality:90,color:'#ca8a04',note:'聯合報系生活娛樂',orders:[]},
+  {id:'m71',name:'The News Lens/Cool3C',type:'article',audience:['tech','news'],       dailyImps:8019,   quality:90,color:'#7c3aed',note:'科技深度新聞',orders:[]},
+  {id:'m72',name:'Car News',         type:'article',audience:['auto'],                 dailyImps:6418,   quality:90,color:'#0e7490',note:'汽車購車族群',orders:[]},
+  {id:'m73',name:'媽媽寶寶/未來家庭', type:'article',audience:['parenting','lifestyle'], dailyImps:10190,  quality:90,color:'#9d174d',note:'孕婦育兒親子族群',orders:[]},
+  {id:'m74',name:'蕃薯藤 yam',        type:'article',audience:['travel','lifestyle'],   dailyImps:9384,   quality:90,color:'#166534',note:'旅遊生活入口網站',orders:[]},
+  {id:'m75',name:'U-CAR',            type:'article',audience:['auto'],                 dailyImps:4676,   quality:90,color:'#92400e',note:'汽車媒體，購車族群',orders:[]},
+  {id:'m76',name:'Cosmopolitan',     type:'article',audience:['lifestyle'],            dailyImps:10665,  quality:90,color:'#1e40af',note:'時尚女性生活',orders:[]},
+  {id:'m77',name:'噗浪 Plurk',        type:'article',audience:['lifestyle'],            dailyImps:3646,   quality:90,color:'#991b1b',note:'社群平台',orders:[]},
+  {id:'m78',name:'HelloYishi',       type:'article',audience:['lifestyle'],            dailyImps:5377,   quality:90,color:'#14532d',note:'生活資訊平台',orders:[]},
+  {id:'m79',name:'PopDaily波波黛莉',  type:'article',audience:['lifestyle','entertainment'],dailyImps:995,quality:90,color:'#78350f',note:'女性生活娛樂',orders:[]},
+  {id:'m80',name:'泛科學',            type:'article',audience:['tech'],                 dailyImps:1408,   quality:90,color:'#1e3a8a',note:'科普知識讀者',orders:[]},
+  {id:'m81',name:'LINE TV',          type:'article',audience:['entertainment'],        dailyImps:1717,   quality:90,color:'#7f1d1d',note:'影音娛樂平台',orders:[]},
+  {id:'m82',name:'華視新聞',          type:'article',audience:['news'],                 dailyImps:949,    quality:90,color:'#064e3b',note:'電視台官方媒體',orders:[]},
+  {id:'m83',name:'cnews匯流新聞網',   type:'article',audience:['news'],                 dailyImps:648,    quality:90,color:'#451a03',note:'新聞媒體',orders:[]},
+  {id:'m84',name:'傳媒',              type:'article',audience:['news'],                 dailyImps:666,    quality:90,color:'#172554',note:'數位新聞媒體',orders:[]},
+];
+
+let MEDIA = JSON.parse(JSON.stringify(DEMO_MEDIA));
+let sheetsId = '';
+
+// ── UTILS ──
+const fmtN = n => Math.round(n).toLocaleString('zh-TW');
+const typeLabel = t => ({article:'文章頁',list:'列表頁',video:'影音'}[t]||t);
+
+function calcBooked(orders, campDays){
+  return orders.reduce((s,o)=>{
+    const ov = Math.max(0, Math.min(campDays, o.startOffset+o.days) - Math.max(0, o.startOffset));
+    return s + o.dailyBooked * ov;
+  }, 0);
+}
+
+// ── NAV ──
+function gotoView(id, btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  const titles = {estimate:['流量預估','輸入提案條件，比對各媒體可用淨量'],media:['媒體管理','檢視合作媒體庫存與在途訂單']};
+  const [t,s] = titles[id]||['',''];
+  document.getElementById('page-title').textContent = t;
+  document.getElementById('page-sub').textContent = s;
+  if(id==='media') renderMedia();
+}
+
+// ── CALCULATE ──
+function calculate(){
+  const budget = parseFloat(document.getElementById('budget').value)||0;
+  const cpm    = parseFloat(document.getElementById('cpm').value)||1;
+  const days   = parseInt(document.getElementById('days').value)||1;
+  const adtype = document.getElementById('adtype').value;
+  const aud    = document.getElementById('audience').value;
+  const needed = Math.round((budget/cpm)*1000);
+
+  const results = MEDIA
+    .filter(m => (adtype==='all'||m.type===adtype) && (aud==='all'||m.audience.includes(aud)))
+    .map(m => {
+      const gross  = m.dailyImps * days;
+      const booked = calcBooked(m.orders, days);
+      const avail  = Math.max(0, gross - booked);
+      return { ...m, gross, booked, avail, bookedRate: gross>0?booked/gross:0 };
+    });
+
+  const tGross  = results.reduce((s,m)=>s+m.gross,0);
+  const tBooked = results.reduce((s,m)=>s+m.booked,0);
+  const tAvail  = results.reduce((s,m)=>s+m.avail,0);
+  const cov     = tAvail / needed;
+
+  document.getElementById('m-needed').textContent  = fmtN(needed);
+  document.getElementById('m-gross').textContent   = fmtN(tGross);
+  document.getElementById('m-booked').textContent  = fmtN(tBooked);
+  document.getElementById('m-avail').textContent   = fmtN(tAvail);
+  const covEl = document.getElementById('m-coverage');
+  covEl.textContent  = Math.round(cov*100)+'%';
+  covEl.className    = 'metric-value'+(cov>=1.2?' accent':cov>=0.8?'':' danger');
+
+  const pct = Math.round(cov*100)+'%';
+  const alertEl = document.getElementById('est-alert');
+  if(cov>=1.2){
+    alertEl.className='alert alert-ok';
+    alertEl.innerHTML='✅ 扣除已售庫存後，可用淨量充足（覆蓋率 '+pct+'），本案可正常排程上線。';
+  } else if(cov>=0.8){
+    alertEl.className='alert alert-warn';
+    alertEl.innerHTML='⚠️ 可用淨量偏緊（覆蓋率 '+pct+'），建議降低 CPM 或拉長走期以確保花完。';
+  } else {
+    alertEl.className='alert alert-fail';
+    alertEl.innerHTML='❌ 已售庫存過多，可用淨量僅覆蓋 '+pct+'，無法在走期內花完，請調整條件。';
+  }
+
+  document.getElementById('est-tbody').innerHTML = results.map((m,i)=>{
+    const bPct = Math.round(m.bookedRate*100);
+    const aPct = m.gross>0?Math.round(m.avail/m.gross*100):0;
+    const share = tAvail>0?m.avail/tAvail:0;
+    const allocNeed = Math.round(needed*share);
+    const fillRate  = allocNeed>0?Math.min(m.avail/allocNeed,1):1;
+    const badge = fillRate>=1?'<span class="badge badge-ok">✓ 可供應</span>':fillRate>=0.7?'<span class="badge badge-warn">⚠ 接近上限</span>':'<span class="badge badge-fail">✗ 淨量不足</span>';
+    const orderRows = m.orders.map(o=>`<div class="order-row"><span>${o.name}</span><span style="font-family:var(--mono)">${fmtN(o.dailyBooked)}/日×${o.days}天</span></div>`).join('');
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${m.color};flex-shrink:0"></span>
+          <span class="td-name">${m.name}</span>
+          ${m.orders.length?`<span class="booked-pill">${m.orders.length}筆</span>`:''}
+        </div>
+        ${m.orders.length?`<div class="orders-toggle" onclick="toggleOrders('od${i}')">查看訂單 ▾</div><div class="orders-detail" id="od${i}">${orderRows}</div>`:''}
+      </td>
+      <td class="text2">${typeLabel(m.type)}</td>
+      <td class="td-mono">${fmtN(m.gross)}</td>
+      <td class="td-danger">${m.booked>0?fmtN(m.booked):'—'}</td>
+      <td class="td-mono" style="color:var(--accent2)">${fmtN(m.avail)}</td>
+      <td class="mono" style="color:${bPct>70?'var(--danger)':bPct>40?'var(--warn)':'var(--text3)'}">${bPct}%</td>
+      <td>
+        <div class="stkbar">
+          <div class="stkbar-booked" style="width:${bPct}%"></div>
+          <div class="stkbar-avail" style="width:${Math.min(aPct,100-bPct)}%"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">淨餘 ${aPct}%</div>
+      </td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('est-result').style.display = 'block';
+}
+
+function toggleOrders(id){ document.getElementById(id).classList.toggle('show'); }
+
+function resetForm(){
+  ['budget','cpm','days','adtype','audience'].forEach(id=>{
+    const el = document.getElementById(id);
+    const def = {budget:500000,cpm:250,days:30,adtype:'all',audience:'all'};
+    el.value = def[id];
+  });
+  document.getElementById('est-result').style.display='none';
+}
+
+// ── MEDIA LIST ──
+function renderMedia(){
+  const ft = document.getElementById('media-filter-type').value;
+  const fa = document.getElementById('media-filter-aud').value;
+  const filtered = MEDIA.filter(m=>(ft==='all'||m.type===ft)&&(fa==='all'||m.audience.includes(fa)));
+  const totalOrders = MEDIA.reduce((s,m)=>s+m.orders.length,0);
+
+  document.getElementById('media-count-lbl').textContent = filtered.length;
+  document.getElementById('orders-count-lbl').textContent = totalOrders;
+
+  document.getElementById('media-list').innerHTML = filtered.map(m=>{
+    const gross30  = m.dailyImps * 30;
+    const booked30 = calcBooked(m.orders, 30);
+    const avail30  = Math.max(0, gross30 - booked30);
+    const bPct30   = gross30>0?Math.round(booked30/gross30*100):0;
+
+    const orderRows = m.orders.map(o=>`
+      <div class="order-row" style="padding:3px 0">
+        <span>${o.name}</span>
+        <span style="font-family:var(--mono);font-size:10px">${fmtN(o.dailyBooked)}/日 × ${o.days}天</span>
+      </div>`).join('');
+
+    return `<div class="media-card">
+      <div class="media-dot" style="background:${m.color}"></div>
+      <div class="media-body">
+        <div class="media-name">${m.name}</div>
+        <div class="media-meta">${typeLabel(m.type)} ／ ${m.audience.join('、')}${m.note?' ／ '+m.note:''}</div>
+        ${m.orders.length ? `
+        <div class="media-orders">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span class="booked-pill">${m.orders.length} 筆在途訂單</span>
+            <span style="font-size:10px;color:var(--text3)">30日已佔 ${bPct30}%</span>
+          </div>
+          <div style="background:var(--surface3);border-radius:var(--radius-sm);padding:4px 8px">${orderRows}</div>
+        </div>` : `<div style="font-size:11px;color:var(--text3);margin-top:4px">無在途訂單</div>`}
+      </div>
+      <div class="media-stats">
+        <div class="media-imps">${fmtN(m.dailyImps)}</div>
+        <div class="media-imps-sub">Imps / 日</div>
+        <div style="margin-top:6px;text-align:right">
+          <div style="font-size:11px;color:var(--accent2);font-family:var(--mono)">${fmtN(avail30)}</div>
+          <div style="font-size:10px;color:var(--text3)">30日淨餘</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── SETTINGS MODAL ──
+function openSettings(){
+  document.getElementById('settings-modal').style.display='flex';
+}
+function closeSettings(){
+  document.getElementById('settings-modal').style.display='none';
+}
+function closeSettingsOutside(e){
+  if(e.target===document.getElementById('settings-modal')) closeSettings();
+}
+
+function setConnStatus(state, msg){
+  const el = document.getElementById('conn-status');
+  el.className = 'conn-status '+{ok:'conn-ok',err:'conn-err',idle:'conn-idle'}[state];
+  el.textContent = msg;
+}
+function showLoading(t){
+  document.getElementById('loading-overlay').style.display='flex';
+  document.getElementById('loading-text').textContent=t||'讀取中...';
+}
+function hideLoading(){ document.getElementById('loading-overlay').style.display='none'; }
+
+function updateSidebarStatus(connected, mc, oc){
+  document.getElementById('sf-media').textContent=mc;
+  document.getElementById('sf-orders').textContent=oc;
+  const badge = document.getElementById('data-badge');
+  badge.className='data-badge '+(connected?'ds-ok':'ds-demo');
+  badge.textContent=connected?'✅ 已連接 Sheets':'📊 示範資料模式';
+  document.getElementById('btn-refresh').style.display=connected?'flex':'none';
+}
+
+async function fetchSheetCSV(id, sheet){
+  const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
+  const res=await fetch(url);
+  if(!res.ok) throw new Error('無法讀取工作表：'+sheet);
+  return res.text();
+}
+
+function parseCSV(text){
+  return text.trim().split('\n').map(line=>{
+    const cols=[]; let cur='', inQ=false;
+    for(const ch of line){
+      if(ch==='"'){inQ=!inQ;continue;}
+      if(ch===','&&!inQ){cols.push(cur.trim());cur='';continue;}
+      cur+=ch;
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+function daysBetween(a,b){
+  const s=new Date(a),e=new Date(b);
+  return isNaN(s)||isNaN(e)?0:Math.max(0,Math.round((e-s)/86400000));
+}
+function offsetFromToday(dateStr){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const d=new Date(dateStr);
+  return isNaN(d)?0:Math.max(0,Math.round((d-today)/86400000));
+}
+
+async function connectSheets(){
+  const id        = document.getElementById('sheets-id').value.trim();
+  const mediaSheet = document.getElementById('sheet-media-name').value.trim()||'媒體庫存';
+  const ordSheet   = document.getElementById('sheet-orders-name').value.trim()||'在途訂單';
+  if(!id){ setConnStatus('err','請先填入試算表 ID'); return; }
+
+  showLoading('讀取媒體庫存工作表...');
+  setConnStatus('idle','連接中...');
+  try {
+    const mediaCsv  = await fetchSheetCSV(id, mediaSheet);
+    const mediaRows = parseCSV(mediaCsv).slice(1);
+
+    showLoading('讀取在途訂單工作表...');
+    const ordCsv  = await fetchSheetCSV(id, ordSheet);
+    const ordRows = parseCSV(ordCsv).slice(1);
+
+    showLoading('解析資料中...');
+    const ordMap={};
+    ordRows.forEach(r=>{
+      if(r.length<8) return;
+      const [,mid,client,desc,startDate,endDate,daysCol,dailyStr,,status]=r;
+      if(!mid||mid==='媒體ID'||status==='完成') return;
+      const daily=parseInt(dailyStr)||0;
+      const dur=daysCol?parseInt(daysCol):daysBetween(startDate,endDate);
+      const offset=offsetFromToday(startDate);
+      if(!ordMap[mid]) ordMap[mid]=[];
+      ordMap[mid].push({name:(client||'')+(desc?'_'+desc:''),dailyBooked:daily,startOffset:offset,days:dur});
+    });
+
+    const COLORS=['#4f8ef7','#38d9a9','#f5a623','#a78bfa','#fb7185','#e879f9','#34d399','#60a5fa','#fbbf24','#6ee7b7'];
+    const newMedia=[];
+    mediaRows.forEach((r,idx)=>{
+      if(r.length<5) return;
+      const [mid,name,type,audStr,impsStr,qualStr,,,,,colorStr,enabledStr]=r;
+      if(!mid||mid==='媒體ID'||enabledStr==='FALSE') return;
+      newMedia.push({
+        id:mid, name:name||'未命名', type:type||'article',
+        audience:(audStr||'').split(',').map(s=>s.trim()).filter(Boolean),
+        dailyImps:parseInt(impsStr)||0,
+        quality:parseInt(qualStr)||80,
+        color:colorStr||COLORS[idx%COLORS.length],
+        orders:ordMap[mid]||[]
+      });
+    });
+    if(!newMedia.length) throw new Error('找不到有效媒體資料，請確認試算表格式');
+
+    MEDIA=newMedia;
+    sheetsId=id;
+    localStorage.setItem('fm_sheets_id',id);
+    localStorage.setItem('fm_media_sheet',mediaSheet);
+    localStorage.setItem('fm_orders_sheet',ordSheet);
+
+    const totalOrd=newMedia.reduce((s,m)=>s+m.orders.length,0);
+    updateSidebarStatus(true, newMedia.length, totalOrd);
+    setConnStatus('ok',`✅ 成功！${newMedia.length} 家媒體、${totalOrd} 筆訂單`);
+    hideLoading();
+    renderMedia();
+  } catch(err){
+    hideLoading();
+    setConnStatus('err','❌ '+err.message);
+  }
+}
+
+async function refreshSheets(){
+  const id=localStorage.getItem('fm_sheets_id')||'';
+  if(!id){ openSettings(); return; }
+  document.getElementById('sheets-id').value=id;
+  document.getElementById('sheet-media-name').value=localStorage.getItem('fm_media_sheet')||'媒體庫存';
+  document.getElementById('sheet-orders-name').value=localStorage.getItem('fm_orders_sheet')||'在途訂單';
+  await connectSheets();
+}
+
+function useDemoData(){
+  MEDIA=JSON.parse(JSON.stringify(DEMO_MEDIA));
+  sheetsId='';
+  updateSidebarStatus(false,MEDIA.length,MEDIA.reduce((s,m)=>s+m.orders.length,0));
+  setConnStatus('idle','已切換至示範資料');
+  renderMedia();
+  closeSettings();
+}
+
+// ── INIT ──
+document.getElementById('startDate').value=new Date().toISOString().split('T')[0];
+const savedId=localStorage.getItem('fm_sheets_id');
+if(savedId){
+  document.getElementById('sheets-id').value=savedId;
+  document.getElementById('sheet-media-name').value=localStorage.getItem('fm_media_sheet')||'媒體庫存';
+  document.getElementById('sheet-orders-name').value=localStorage.getItem('fm_orders_sheet')||'在途訂單';
+}
+updateSidebarStatus(false, MEDIA.length, MEDIA.reduce((s,m)=>s+m.orders.length,0));
+calculate();
+renderMedia();
+</script>
+</body>
+</html>
