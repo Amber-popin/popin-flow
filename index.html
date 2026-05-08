@@ -718,8 +718,8 @@ async function connectSheets(){
       if(r.length<8) return;
       const [,mid,client,desc,startDate,endDate,daysCol,dailyStr,,status]=r;
       if(!mid||mid==='媒體ID'||status==='完成') return;
-      const daily=parseInt(dailyStr)||0;
-      const dur=daysCol?parseInt(daysCol):daysBetween(startDate,endDate);
+      const daily=parseInt((dailyStr||'').replace(/,/g,''))||0;
+      const dur=daysCol?parseInt((daysCol||'').replace(/,/g,'')):daysBetween(startDate,endDate);
       const offset=offsetFromToday(startDate);
       if(!ordMap[mid]) ordMap[mid]=[];
       ordMap[mid].push({name:(client||'')+(desc?'_'+desc:''),dailyBooked:daily,startOffset:offset,days:dur});
@@ -734,8 +734,8 @@ async function connectSheets(){
       newMedia.push({
         id:mid, name:name||'未命名', type:type||'article',
         audience:(audStr||'').split(',').map(s=>s.trim()).filter(Boolean),
-        dailyImps:parseInt(impsStr)||0,
-        quality:parseInt(qualStr)||80,
+        dailyImps:parseInt((impsStr||'').replace(/,/g,''))||0,
+        quality:parseInt((qualStr||'').replace(/,/g,''))||80,
         color:colorStr||COLORS[idx%COLORS.length],
         orders:ordMap[mid]||[]
       });
@@ -805,8 +805,8 @@ renderMedia();
       if(r.length<8) return;
       const[,mid,client,desc,startDate,endDate,daysCol,dailyStr,,status]=r;
       if(!mid||mid==='媒體ID'||status==='完成') return;
-      const daily=parseInt(dailyStr)||0;
-      const dur=daysCol?parseInt(daysCol):daysBetween(startDate,endDate);
+      const daily=parseInt((dailyStr||'').replace(/,/g,''))||0;
+      const dur=daysCol?parseInt((daysCol||'').replace(/,/g,'')):daysBetween(startDate,endDate);
       const offset=offsetFromToday(startDate);
       if(!ordMap[mid]) ordMap[mid]=[];
       ordMap[mid].push({name:(client||'')+(desc?'_'+desc:''),dailyBooked:daily,startOffset:offset,days:dur});
@@ -820,8 +820,8 @@ renderMedia();
       newMedia.push({
         id:mid,name:name||'未命名',type:type||'article',
         audience:(audStr||'').split(',').map(s=>s.trim()).filter(Boolean),
-        dailyImps:parseInt(impsStr)||0,
-        quality:parseInt(qualStr)||80,
+        dailyImps:parseInt((impsStr||'').replace(/,/g,''))||0,
+        quality:parseInt((qualStr||'').replace(/,/g,''))||80,
         color:colorStr||COLORS[idx%COLORS.length],
         orders:ordMap[mid]||[]
       });
