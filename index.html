@@ -778,16 +778,67 @@ function useDemoData(){
 }
 
 // ── INIT ──
+const DEFAULT_SHEETS_ID = '1dfkI55-1k5zlLatKZId7uyV0lg85Urya8NrnaKqrELk';
+const DEFAULT_MEDIA_SHEET = '媒體庫存';
+const DEFAULT_ORDERS_SHEET = '在途訂單';
+
 document.getElementById('startDate').value=new Date().toISOString().split('T')[0];
-const savedId=localStorage.getItem('fm_sheets_id');
-if(savedId){
-  document.getElementById('sheets-id').value=savedId;
-  document.getElementById('sheet-media-name').value=localStorage.getItem('fm_media_sheet')||'媒體庫存';
-  document.getElementById('sheet-orders-name').value=localStorage.getItem('fm_orders_sheet')||'在途訂單';
-}
+document.getElementById('sheets-id').value=DEFAULT_SHEETS_ID;
+document.getElementById('sheet-media-name').value=DEFAULT_MEDIA_SHEET;
+document.getElementById('sheet-orders-name').value=DEFAULT_ORDERS_SHEET;
+
 updateSidebarStatus(false, MEDIA.length, MEDIA.reduce((s,m)=>s+m.orders.length,0));
 calculate();
 renderMedia();
+
+// 自動連接 Google Sheets
+(async()=>{
+  try{
+    sheetsId=DEFAULT_SHEETS_ID;
+    const mediaCsv=await fetchSheetCSV(DEFAULT_SHEETS_ID,DEFAULT_MEDIA_SHEET);
+    const mediaRows=parseCSV(mediaCsv).slice(1);
+    const ordCsv=await fetchSheetCSV(DEFAULT_SHEETS_ID,DEFAULT_ORDERS_SHEET);
+    const ordRows=parseCSV(ordCsv).slice(1);
+    const ordMap={};
+    const today=new Date().toISOString().split('T')[0];
+    ordRows.forEach(r=>{
+      if(r.length<8) return;
+      const[,mid,client,desc,startDate,endDate,daysCol,dailyStr,,status]=r;
+      if(!mid||mid==='媒體ID'||status==='完成') return;
+      const daily=parseInt(dailyStr)||0;
+      const dur=daysCol?parseInt(daysCol):daysBetween(startDate,endDate);
+      const offset=offsetFromToday(startDate);
+      if(!ordMap[mid]) ordMap[mid]=[];
+      ordMap[mid].push({name:(client||'')+(desc?'_'+desc:''),dailyBooked:daily,startOffset:offset,days:dur});
+    });
+    const COLORS=['#4f8ef7','#38d9a9','#f5a623','#a78bfa','#fb7185','#e879f9','#34d399','#60a5fa','#fbbf24','#6ee7b7'];
+    const newMedia=[];
+    mediaRows.forEach((r,idx)=>{
+      if(r.length<5) return;
+      const[mid,name,type,audStr,impsStr,qualStr,,,,,colorStr,enabledStr]=r;
+      if(!mid||mid==='媒體ID'||enabledStr==='FALSE') return;
+      newMedia.push({
+        id:mid,name:name||'未命名',type:type||'article',
+        audience:(audStr||'').split(',').map(s=>s.trim()).filter(Boolean),
+        dailyImps:parseInt(impsStr)||0,
+        quality:parseInt(qualStr)||80,
+        color:colorStr||COLORS[idx%COLORS.length],
+        orders:ordMap[mid]||[]
+      });
+    });
+    if(!newMedia.length) return;
+    MEDIA=newMedia;
+    const totalOrd=newMedia.reduce((s,m)=>s+m.orders.length,0);
+    updateSidebarStatus(true,newMedia.length,totalOrd);
+    setConnStatus('ok',`✅ 成功！${newMedia.length} 家媒體、${totalOrd} 筆訂單`);
+    document.getElementById('btn-refresh').style.display='flex';
+    renderMedia();
+    calculate();
+  }catch(e){
+    // 靜默失敗，保持示範資料
+    console.warn('Auto-connect failed, using demo data:', e.message);
+  }
+})();
 </script>
 </body>
 </html>
