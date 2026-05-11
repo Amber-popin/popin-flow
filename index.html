@@ -253,7 +253,20 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
           <div class="metric"><div class="metric-label">淨覆蓋率</div><div class="metric-value" id="m-coverage">—</div><div class="metric-sub">淨量 ÷ 需求量</div></div>
         </div>
         <div class="card">
-          <div class="card-title" style="margin-bottom:10px">媒體庫存明細（已售扣除）</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="card-title" style="margin:0">媒體庫存明細（已售扣除）</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;color:var(--text3)">排序：</span>
+              <select id="sort-col" class="form-control" style="height:28px;font-size:11px;width:100px;padding:0 8px" onchange="applySortAndRender()">
+                <option value="default">預設</option>
+                <option value="type">版位</option>
+                <option value="gross">走期庫存</option>
+                <option value="avail">可用淨量</option>
+                <option value="bookedRate">佔用率</option>
+              </select>
+              <button id="sort-dir-btn" class="btn-ghost" style="height:28px;padding:0 10px;font-size:12px" onclick="toggleSortDir()">↓ 降序</button>
+            </div>
+          </div>
           <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;color:var(--text3)">
             <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:5px;border-radius:2px;background:var(--danger);display:inline-block;opacity:.7"></span>已售庫存</span>
             <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:5px;border-radius:2px;background:var(--accent2);display:inline-block;opacity:.8"></span>可用淨量</span>
@@ -263,11 +276,11 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
               <thead>
                 <tr>
                   <th style="width:140px">媒體名稱</th>
-                  <th>版位</th>
-                  <th>走期庫存</th>
+                  <th style="cursor:pointer;user-select:none" onclick="setSort('type')">版位 <span id="sort-icon-type"></span></th>
+                  <th style="cursor:pointer;user-select:none" onclick="setSort('gross')">走期庫存 <span id="sort-icon-gross"></span></th>
                   <th>已售 Imps</th>
-                  <th>可用淨量</th>
-                  <th>佔用率</th>
+                  <th style="cursor:pointer;user-select:none" onclick="setSort('avail')">可用淨量 <span id="sort-icon-avail"></span></th>
+                  <th style="cursor:pointer;user-select:none" onclick="setSort('bookedRate')">佔用率 <span id="sort-icon-bookedRate"></span></th>
                   <th style="width:100px">庫存分佈</th>
                   <th>匹配狀態</th>
                 </tr>
@@ -497,6 +510,91 @@ function gotoView(id, btn){
 }
 
 // ── CALCULATE ──
+// ── SORT STATE ──
+let _sortCol = 'default';
+let _sortAsc = false;
+let _lastResults = [];
+let _lastNeeded = 0;
+let _lastTAvail = 0;
+
+function setSort(col){
+  if(_sortCol === col){ _sortAsc = !_sortAsc; }
+  else { _sortCol = col; _sortAsc = col === 'type'; }
+  document.getElementById('sort-col').value = col;
+  updateSortIcons();
+  renderResults();
+}
+function toggleSortDir(){
+  _sortAsc = !_sortAsc;
+  document.getElementById('sort-dir-btn').textContent = _sortAsc ? '↑ 升序' : '↓ 降序';
+  renderResults();
+}
+function applySortAndRender(){
+  _sortCol = document.getElementById('sort-col').value;
+  updateSortIcons();
+  renderResults();
+}
+function updateSortIcons(){
+  ['type','gross','avail','bookedRate'].forEach(c=>{
+    const el = document.getElementById('sort-icon-'+c);
+    if(!el) return;
+    el.textContent = _sortCol===c ? (_sortAsc?'↑':'↓') : '';
+  });
+  document.getElementById('sort-dir-btn').textContent = _sortAsc ? '↑ 升序' : '↓ 降序';
+}
+
+function getSortedResults(results){
+  if(_sortCol==='default') return results;
+  return [...results].sort((a,b)=>{
+    let va, vb;
+    if(_sortCol==='type'){ va=a.type; vb=b.type; }
+    else if(_sortCol==='gross'){ va=a.gross; vb=b.gross; }
+    else if(_sortCol==='avail'){ va=a.avail; vb=b.avail; }
+    else if(_sortCol==='bookedRate'){ va=a.bookedRate; vb=b.bookedRate; }
+    if(typeof va==='string') return _sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return _sortAsc ? va-vb : vb-va;
+  });
+}
+
+function renderResults(){
+  if(!_lastResults.length) return;
+  const sorted = getSortedResults(_lastResults);
+  const needed = _lastNeeded;
+  const tAvail = _lastTAvail;
+  document.getElementById('est-tbody').innerHTML = sorted.map((m,i)=>{
+    const bPct = Math.round(m.bookedRate*100);
+    const aPct = m.gross>0?Math.round(m.avail/m.gross*100):0;
+    const share = tAvail>0?m.avail/tAvail:0;
+    const allocNeed = Math.round(needed*share);
+    const fillRate  = allocNeed>0?Math.min(m.avail/allocNeed,1):1;
+    const badge = fillRate>=1?'<span class="badge badge-ok">✓ 可供應</span>':fillRate>=0.7?'<span class="badge badge-warn">⚠ 接近上限</span>':'<span class="badge badge-fail">✗ 淨量不足</span>';
+    const orderRows = m.orders.map(o=>`<div class="order-row"><span>${o.name}</span><span style="font-family:var(--mono)">${fmtN(o.dailyBooked)}/日×${o.days}天</span></div>`).join('');
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${m.color};flex-shrink:0"></span>
+          <span class="td-name">${m.name}</span>
+          ${m.orders.length?`<span class="booked-pill">${m.orders.length}筆</span>`:''}
+        </div>
+        ${m.orders.length?`<div class="orders-toggle" onclick="toggleOrders('od${i}')">查看訂單 ▾</div><div class="orders-detail" id="od${i}">${orderRows}</div>`:''}
+      </td>
+      <td class="text2">${typeLabel(m.type)}</td>
+      <td class="td-mono">${fmtN(m.gross)}</td>
+      <td class="td-danger">${m.booked>0?fmtN(m.booked):'—'}</td>
+      <td class="td-mono" style="color:var(--accent2)">${fmtN(m.avail)}</td>
+      <td class="mono" style="color:${bPct>70?'var(--danger)':bPct>40?'var(--warn)':'var(--text3)'}">${bPct}%</td>
+      <td>
+        <div class="stkbar">
+          <div class="stkbar-booked" style="width:${bPct}%"></div>
+          <div class="stkbar-avail" style="width:${Math.min(aPct,100-bPct)}%"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">淨餘 ${aPct}%</div>
+      </td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
 function calculate(){
   const budget = parseFloat(document.getElementById('budget').value)||0;
   const cpm    = parseFloat(document.getElementById('cpm').value)||1;
@@ -540,39 +638,10 @@ function calculate(){
     alertEl.innerHTML='❌ 已售庫存過多，可用淨量僅覆蓋 '+pct+'，無法在走期內花完，請調整條件。';
   }
 
-  document.getElementById('est-tbody').innerHTML = results.map((m,i)=>{
-    const bPct = Math.round(m.bookedRate*100);
-    const aPct = m.gross>0?Math.round(m.avail/m.gross*100):0;
-    const share = tAvail>0?m.avail/tAvail:0;
-    const allocNeed = Math.round(needed*share);
-    const fillRate  = allocNeed>0?Math.min(m.avail/allocNeed,1):1;
-    const badge = fillRate>=1?'<span class="badge badge-ok">✓ 可供應</span>':fillRate>=0.7?'<span class="badge badge-warn">⚠ 接近上限</span>':'<span class="badge badge-fail">✗ 淨量不足</span>';
-    const orderRows = m.orders.map(o=>`<div class="order-row"><span>${o.name}</span><span style="font-family:var(--mono)">${fmtN(o.dailyBooked)}/日×${o.days}天</span></div>`).join('');
-    return `<tr>
-      <td>
-        <div style="display:flex;align-items:center;gap:7px">
-          <span style="width:7px;height:7px;border-radius:50%;background:${m.color};flex-shrink:0"></span>
-          <span class="td-name">${m.name}</span>
-          ${m.orders.length?`<span class="booked-pill">${m.orders.length}筆</span>`:''}
-        </div>
-        ${m.orders.length?`<div class="orders-toggle" onclick="toggleOrders('od${i}')">查看訂單 ▾</div><div class="orders-detail" id="od${i}">${orderRows}</div>`:''}
-      </td>
-      <td class="text2">${typeLabel(m.type)}</td>
-      <td class="td-mono">${fmtN(m.gross)}</td>
-      <td class="td-danger">${m.booked>0?fmtN(m.booked):'—'}</td>
-      <td class="td-mono" style="color:var(--accent2)">${fmtN(m.avail)}</td>
-      <td class="mono" style="color:${bPct>70?'var(--danger)':bPct>40?'var(--warn)':'var(--text3)'}">${bPct}%</td>
-      <td>
-        <div class="stkbar">
-          <div class="stkbar-booked" style="width:${bPct}%"></div>
-          <div class="stkbar-avail" style="width:${Math.min(aPct,100-bPct)}%"></div>
-        </div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">淨餘 ${aPct}%</div>
-      </td>
-      <td>${badge}</td>
-    </tr>`;
-  }).join('');
-
+  _lastResults = results;
+  _lastNeeded  = needed;
+  _lastTAvail  = tAvail;
+  renderResults();
   document.getElementById('est-result').style.display = 'block';
 }
 
